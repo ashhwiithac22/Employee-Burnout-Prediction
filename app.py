@@ -21,8 +21,6 @@ def load_data():
     try:
         # Load the HR dataset directly from Excel
         df = pd.read_excel("D:\\PROJECTS\\Employee Burnout Prediction\\HR Data.xlsx")
-        st.success("✅ Dataset loaded successfully from Excel file!")
-        
         # Display basic info about the dataset
         st.sidebar.info(f"Dataset Shape: {df.shape}")
         
@@ -206,11 +204,11 @@ def main():
         df = load_data()
         df = engineer_burnout_features(df)
     
-    # Sidebar for navigation
+    # Sidebar for navigation - MERGED THE TWO PREDICTION OPTIONS
     st.sidebar.title("Navigation")
     page = st.sidebar.radio("Go to", 
                            ["Home / Overview", "EDA", "Model Training & Prediction", 
-                            "Explainability", "Prediction Interface", "Burnout Assessment"])
+                            "Explainability", "Burnout Prediction & Assessment"])  # Merged into one
     
     if page == "Home / Overview":
         st.header("📊 Project Overview")
@@ -422,317 +420,298 @@ def main():
         ax.set_xlabel("Feature Importance")
         st.pyplot(fig)
         
-        # SHAP Analysis
-        st.subheader("SHAP Analysis")
-        st.write("SHAP (SHapley Additive exPlanations) shows how each feature contributes to predictions.")
+    elif page == "Burnout Prediction & Assessment":  # MERGED PREDICTION INTERFACE
+        st.header("🎯 Burnout Prediction & Assessment")
         
-        if st.button("Generate SHAP Analysis"):
-            with st.spinner("Calculating SHAP values... This may take a while for large datasets."):
-                try:
-                    # Calculate SHAP values
-                    explainer = shap.TreeExplainer(rf_model)
-                    shap_values = explainer.shap_values(X_train_scaled)
-                    
-                    # Summary plot
-                    st.write("**SHAP Summary Plot:**")
-                    fig, ax = plt.subplots(figsize=(10, 8))
-                    shap.summary_plot(shap_values, X_train_scaled, feature_names=feature_names, show=False)
-                    st.pyplot(fig)
-                    
-                except Exception as e:
-                    st.error(f"❌ Error generating SHAP plot: {e}")
-                    st.info("This might be due to dataset size or memory constraints.")
-    
-    elif page == "Prediction Interface":
-        st.header("🎯 Burnout Risk Prediction")
+        # Create tabs for the two different input methods
+        tab1, tab2 = st.tabs(["📊 HR Data Prediction", "🧠 Self-Assessment Questionnaire"])
         
-        with st.spinner("🔄 Loading prediction model..."):
-            X, y, feature_names = prepare_features(df)
+        with tab1:
+            st.subheader("Predict Burnout Risk from HR Data")
             
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-            
-            scaler = StandardScaler()
-            X_train_scaled = scaler.fit_transform(X_train)
-            
-            # Train Random Forest model
-            rf_model = RandomForestClassifier(random_state=42, n_estimators=100)
-            rf_model.fit(X_train_scaled, y_train)
-        
-        # Input form
-        st.subheader("Enter Employee Details")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            age = st.slider("Age", 18, 65, 35)
-            daily_rate = st.slider("Daily Rate", 100, 2000, 800)
-            distance_from_home = st.slider("Distance From Home (miles)", 1, 50, 10)
-            education = st.slider("Education Level (1-5)", 1, 5, 3)
-            environment_satisfaction = st.slider("Environment Satisfaction (1-4)", 1, 4, 3)
-            job_involvement = st.slider("Job Involvement (1-4)", 1, 4, 3)
-            job_level = st.slider("Job Level (1-5)", 1, 5, 2)
-        
-        with col2:
-            job_satisfaction = st.slider("Job Satisfaction (1-4)", 1, 4, 3)
-            monthly_income = st.slider("Monthly Income ($)", 1000, 25000, 6500)
-            num_companies_worked = st.slider("Number of Companies Worked", 0, 15, 3)
-            work_life_balance = st.slider("Work Life Balance (1-4)", 1, 4, 3)
-            years_at_company = st.slider("Years at Company", 0, 40, 5)
-            years_in_current_role = st.slider("Years in Current Role", 0, 20, 2)
-            overtime = st.selectbox("Works Overtime", ["No", "Yes"])
-        
-        # Calculate total working years if not provided
-        total_working_years = max(years_at_company + 2, 1)  # Simple estimation
-        
-        # Create input array based on available features
-        input_data = []
-        for feature in feature_names:
-            if feature == 'Age':
-                input_data.append(age)
-            elif feature == 'DailyRate':
-                input_data.append(daily_rate)
-            elif feature == 'DistanceFromHome':
-                input_data.append(distance_from_home)
-            elif feature == 'Education':
-                input_data.append(education)
-            elif feature == 'EnvironmentSatisfaction':
-                input_data.append(environment_satisfaction)
-            elif feature == 'JobInvolvement':
-                input_data.append(job_involvement)
-            elif feature == 'JobLevel':
-                input_data.append(job_level)
-            elif feature == 'JobSatisfaction':
-                input_data.append(job_satisfaction)
-            elif feature == 'MonthlyIncome':
-                input_data.append(monthly_income)
-            elif feature == 'NumCompaniesWorked':
-                input_data.append(num_companies_worked)
-            elif feature == 'WorkLifeBalance':
-                input_data.append(work_life_balance)
-            elif feature == 'YearsAtCompany':
-                input_data.append(years_at_company)
-            elif feature == 'YearsInCurrentRole':
-                input_data.append(years_in_current_role)
-            elif feature == 'OverTime':
-                input_data.append(1 if overtime == "Yes" else 0)
-            else:
-                # For other features, use median values from training data
-                input_data.append(X[feature].median())
-        
-        input_array = np.array([input_data])
-        
-        # Scale input
-        input_scaled = scaler.transform(input_array)
-        
-        # Prediction
-        if st.button("Predict Burnout Risk"):
-            prediction = rf_model.predict(input_scaled)[0]
-            probability = rf_model.predict_proba(input_scaled)[0][1]
-            
-            st.subheader("Prediction Result")
-            
-            if prediction == 1:
-                st.error(f"🚨 High Burnout Risk Detected!")
-                st.write(f"Risk Probability: {probability:.2%}")
-                st.write("""
-                **Recommendations:**
-                - Consider workload reduction and delegation
-                - Encourage taking regular breaks and time off
-                - Provide access to mental health resources
-                - Review and improve work-life balance
-                - Consider flexible working arrangements
-                """)
-            else:
-                st.success(f"✅ Low Burnout Risk")
-                st.write(f"Risk Probability: {probability:.2%}")
-                st.write("""
-                **Good job!** Employee shows healthy work patterns.
+            with st.spinner("🔄 Loading prediction model..."):
+                X, y, feature_names = prepare_features(df)
                 
-                **Maintenance Tips:**
-                - Continue monitoring work-life balance
-                - Encourage regular breaks and vacations
-                - Maintain open communication channels
-                - Promote team building activities
-                """)
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+                
+                scaler = StandardScaler()
+                X_train_scaled = scaler.fit_transform(X_train)
+                
+                # Train Random Forest model
+                rf_model = RandomForestClassifier(random_state=42, n_estimators=100)
+                rf_model.fit(X_train_scaled, y_train)
             
-            # Show contributing factors
-            st.subheader("Key Contributing Factors")
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                if work_life_balance <= 2:
-                    st.warning("⚠️ Poor Work-Life Balance")
-                else:
-                    st.success("✓ Good Work-Life Balance")
-                    
-            with col2:
-                if job_satisfaction <= 2:
-                    st.warning("⚠️ Low Job Satisfaction")
-                else:
-                    st.success("✓ Good Job Satisfaction")
-                    
-            with col3:
-                if overtime == "Yes":
-                    st.warning("⚠️ Regular Overtime")
-                else:
-                    st.success("✓ Reasonable Working Hours")
-
-    elif page == "Burnout Assessment":
-        st.header("🧠 Employee Burnout Assessment")
-        st.write("Complete this assessment to evaluate burnout risk based on current symptoms and work conditions.")
-        
-        with st.form("burnout_assessment"):
-            st.subheader("Work-Related Factors")
+            # Input form for HR data prediction
+            st.write("Enter employee details to predict burnout risk:")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                work_hours = st.slider("Average weekly work hours", 20, 80, 45)
-                work_pressure = st.slider("Perceived work pressure (1-10)", 1, 10, 6)
-                work_autonomy = st.slider("Work autonomy/control (1-10)", 1, 10, 7)
-                
+                age = st.slider("Age", 18, 65, 35, key="hr_age")
+                daily_rate = st.slider("Daily Rate", 100, 2000, 800, key="hr_daily_rate")
+                distance_from_home = st.slider("Distance From Home (miles)", 1, 50, 10, key="hr_distance")
+                education = st.slider("Education Level (1-5)", 1, 5, 3, key="hr_education")
+                environment_satisfaction = st.slider("Environment Satisfaction (1-4)", 1, 4, 3, key="hr_env_sat")
+                job_involvement = st.slider("Job Involvement (1-4)", 1, 4, 3, key="hr_job_inv")
+                job_level = st.slider("Job Level (1-5)", 1, 5, 2, key="hr_job_level")
+            
             with col2:
-                overtime_frequency = st.selectbox("How often do you work overtime?", 
-                                               ["Never", "Rarely", "Sometimes", "Often", "Always"])
-                deadline_frequency = st.selectbox("How often do you face tight deadlines?",
-                                               ["Never", "Rarely", "Sometimes", "Often", "Always"])
+                job_satisfaction = st.slider("Job Satisfaction (1-4)", 1, 4, 3, key="hr_job_sat")
+                monthly_income = st.slider("Monthly Income ($)", 1000, 25000, 6500, key="hr_income")
+                num_companies_worked = st.slider("Number of Companies Worked", 0, 15, 3, key="hr_companies")
+                work_life_balance = st.slider("Work Life Balance (1-4)", 1, 4, 3, key="hr_wlb")
+                years_at_company = st.slider("Years at Company", 0, 40, 5, key="hr_years_company")
+                years_in_current_role = st.slider("Years in Current Role", 0, 20, 2, key="hr_years_role")
+                overtime = st.selectbox("Works Overtime", ["No", "Yes"], key="hr_overtime")
             
-            st.subheader("Personal Well-being")
+            # Create input array based on available features
+            input_data = []
+            for feature in feature_names:
+                if feature == 'Age':
+                    input_data.append(age)
+                elif feature == 'DailyRate':
+                    input_data.append(daily_rate)
+                elif feature == 'DistanceFromHome':
+                    input_data.append(distance_from_home)
+                elif feature == 'Education':
+                    input_data.append(education)
+                elif feature == 'EnvironmentSatisfaction':
+                    input_data.append(environment_satisfaction)
+                elif feature == 'JobInvolvement':
+                    input_data.append(job_involvement)
+                elif feature == 'JobLevel':
+                    input_data.append(job_level)
+                elif feature == 'JobSatisfaction':
+                    input_data.append(job_satisfaction)
+                elif feature == 'MonthlyIncome':
+                    input_data.append(monthly_income)
+                elif feature == 'NumCompaniesWorked':
+                    input_data.append(num_companies_worked)
+                elif feature == 'WorkLifeBalance':
+                    input_data.append(work_life_balance)
+                elif feature == 'YearsAtCompany':
+                    input_data.append(years_at_company)
+                elif feature == 'YearsInCurrentRole':
+                    input_data.append(years_in_current_role)
+                elif feature == 'OverTime':
+                    input_data.append(1 if overtime == "Yes" else 0)
+                else:
+                    # For other features, use median values from training data
+                    input_data.append(X[feature].median())
             
-            col1, col2 = st.columns(2)
+            input_array = np.array([input_data])
             
-            with col1:
-                sleep_hours = st.slider("Average hours of sleep per night", 3, 12, 7)
-                stress_level = st.slider("Current stress level (1-10)", 1, 10, 5)
-                
-            with col2:
-                energy_level = st.slider("Daily energy level (1-10)", 1, 10, 7)
-                motivation_level = st.slider("Work motivation level (1-10)", 1, 10, 7)
+            # Scale input
+            input_scaled = scaler.transform(input_array)
             
-            st.subheader("Symptoms & Feelings")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                exhaustion = st.selectbox("Emotional exhaustion?",
-                                        ["Never", "Rarely", "Sometimes", "Often", "Always"])
-                physical_tiredness = st.selectbox("Physical tiredness?",
-                                                ["Never", "Rarely", "Sometimes", "Often", "Always"])
+            # Prediction button for HR data
+            if st.button("Predict Burnout Risk from HR Data", key="hr_predict"):
+                prediction = rf_model.predict(input_scaled)[0]
+                probability = rf_model.predict_proba(input_scaled)[0][1]
                 
-            with col2:
-                cynicism = st.selectbox("Cynicism/detachment from work?",
-                                      ["Never", "Rarely", "Sometimes", "Often", "Always"])
-                irritability = st.selectbox("Irritability with colleagues?",
-                                          ["Never", "Rarely", "Sometimes", "Often", "Always"])
+                st.subheader("HR Data Prediction Result")
                 
-            with col3:
-                reduced_accomplishment = st.selectbox("Reduced professional efficacy?",
-                                                   ["Never", "Rarely", "Sometimes", "Often", "Always"])
-                concentration = st.selectbox("Difficulty concentrating?",
-                                           ["Never", "Rarely", "Sometimes", "Often", "Always"])
-            
-            submitted = st.form_submit_button("Assess Burnout Risk")
-            
-            if submitted:
-                # Comprehensive scoring system
-                score = 0
-                
-                # Work factors (max 20 points)
-                if work_hours > 50: score += 2
-                if work_hours > 60: score += 3
-                
-                overtime_scores = {"Never": 0, "Rarely": 1, "Sometimes": 2, "Often": 3, "Always": 4}
-                score += overtime_scores[overtime_frequency]
-                
-                if work_pressure >= 7: score += 2
-                if work_pressure >= 9: score += 1
-                
-                deadline_scores = {"Never": 0, "Rarely": 1, "Sometimes": 2, "Often": 3, "Always": 4}
-                score += deadline_scores[deadline_frequency]
-                
-                if work_autonomy <= 4: score += 2
-                
-                # Well-being factors (max 15 points)
-                if sleep_hours < 6: score += 3
-                if sleep_hours < 5: score += 2
-                
-                if stress_level >= 7: score += 2
-                if stress_level >= 9: score += 1
-                
-                if energy_level <= 4: score += 2
-                if energy_level <= 3: score += 1
-                
-                if motivation_level <= 4: score += 2
-                if motivation_level <= 2: score += 1
-                
-                # Symptoms (max 25 points)
-                symptom_scores = {"Never": 0, "Rarely": 1, "Sometimes": 2, "Often": 3, "Always": 4}
-                score += symptom_scores[exhaustion]
-                score += symptom_scores[cynicism]
-                score += symptom_scores[reduced_accomplishment]
-                score += symptom_scores[physical_tiredness]
-                score += symptom_scores[irritability]
-                score += symptom_scores[concentration]
-                
-                # Risk assessment
-                max_score = 60
-                risk_percentage = (score / max_score) * 100
-                
-                st.subheader("📋 Assessment Results")
-                st.metric("Your Burnout Risk Score", f"{score}/{max_score} ({risk_percentage:.1f}%)")
-                
-                if risk_percentage < 25:
-                    st.success("🟢 LOW BURNOUT RISK")
-                    st.balloons()
+                if prediction == 1:
+                    st.error(f"🚨 High Burnout Risk Detected!")
+                    st.write(f"Risk Probability: {probability:.2%}")
                     st.write("""
-                    **You're doing great!** Your work habits and well-being indicators are healthy.
+                    **Recommendations:**
+                    - Consider workload reduction and delegation
+                    - Encourage taking regular breaks and time off
+                    - Provide access to mental health resources
+                    - Review and improve work-life balance
+                    - Consider flexible working arrangements
+                    """)
+                else:
+                    st.success(f"✅ Low Burnout Risk")
+                    st.write(f"Risk Probability: {probability:.2%}")
+                    st.write("""
+                    **Good job!** Employee shows healthy work patterns.
                     
                     **Maintenance Tips:**
-                    - Continue your current work-life balance practices
-                    - Keep taking regular breaks and vacations
-                    - Maintain your support networks
-                    - Stay proactive about stress management
+                    - Continue monitoring work-life balance
+                    - Encourage regular breaks and vacations
+                    - Maintain open communication channels
+                    - Promote team building activities
                     """)
+                
+                # Show contributing factors
+                st.subheader("Key Contributing Factors")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if work_life_balance <= 2:
+                        st.warning("⚠️ Poor Work-Life Balance")
+                    else:
+                        st.success("✓ Good Work-Life Balance")
+                        
+                with col2:
+                    if job_satisfaction <= 2:
+                        st.warning("⚠️ Low Job Satisfaction")
+                    else:
+                        st.success("✓ Good Job Satisfaction")
+                        
+                with col3:
+                    if overtime == "Yes":
+                        st.warning("⚠️ Regular Overtime")
+                    else:
+                        st.success("✓ Reasonable Working Hours")
+        
+        with tab2:
+            st.subheader("Self-Assessment Burnout Questionnaire")
+            st.write("Complete this assessment to evaluate burnout risk based on current symptoms and work conditions.")
+            
+            with st.form("burnout_assessment"):
+                st.subheader("Work-Related Factors")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    work_hours = st.slider("Average weekly work hours", 20, 80, 45, key="assess_hours")
+                    work_pressure = st.slider("Perceived work pressure (1-10)", 1, 10, 6, key="assess_pressure")
+                    work_autonomy = st.slider("Work autonomy/control (1-10)", 1, 10, 7, key="assess_autonomy")
                     
-                elif risk_percentage < 50:
-                    st.warning("🟡 MODERATE BURNOUT RISK")
-                    st.write("""
-                    **Caution advised.** You're showing some signs of strain that could lead to burnout.
+                with col2:
+                    overtime_frequency = st.selectbox("How often do you work overtime?", 
+                                                   ["Never", "Rarely", "Sometimes", "Often", "Always"], key="assess_overtime")
+                    deadline_frequency = st.selectbox("How often do you face tight deadlines?",
+                                                   ["Never", "Rarely", "Sometimes", "Often", "Always"], key="assess_deadlines")
+                
+                st.subheader("Personal Well-being")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    sleep_hours = st.slider("Average hours of sleep per night", 3, 12, 7, key="assess_sleep")
+                    stress_level = st.slider("Current stress level (1-10)", 1, 10, 5, key="assess_stress")
                     
-                    **Action Recommendations:**
-                    - Monitor your workload and set boundaries
-                    - Practice regular stress management techniques
-                    - Ensure you're taking proper breaks
-                    - Consider discussing workload with your manager
-                    - Prioritize sleep and physical activity
-                    """)
+                with col2:
+                    energy_level = st.slider("Daily energy level (1-10)", 1, 10, 7, key="assess_energy")
+                    motivation_level = st.slider("Work motivation level (1-10)", 1, 10, 7, key="assess_motivation")
+                
+                st.subheader("Symptoms & Feelings")
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    exhaustion = st.selectbox("Emotional exhaustion?",
+                                            ["Never", "Rarely", "Sometimes", "Often", "Always"], key="assess_exhaustion")
+                    physical_tiredness = st.selectbox("Physical tiredness?",
+                                                    ["Never", "Rarely", "Sometimes", "Often", "Always"], key="assess_tiredness")
                     
-                elif risk_percentage < 75:
-                    st.error("🟠 HIGH BURNOUT RISK")
-                    st.write("""
-                    **Immediate attention needed.** You're showing significant burnout risk factors.
+                with col2:
+                    cynicism = st.selectbox("Cynicism/detachment from work?",
+                                          ["Never", "Rarely", "Sometimes", "Often", "Always"], key="assess_cynicism")
+                    irritability = st.selectbox("Irritability with colleagues?",
+                                              ["Never", "Rarely", "Sometimes", "Often", "Always"], key="assess_irritability")
                     
-                    **Urgent Actions:**
-                    - Review and reduce your workload immediately
-                    - Take time off if possible
-                    - Seek support from HR or mental health professionals
-                    - Discuss flexible working arrangements
-                    - Prioritize self-care and recovery
-                    """)
+                with col3:
+                    reduced_accomplishment = st.selectbox("Reduced professional efficacy?",
+                                                       ["Never", "Rarely", "Sometimes", "Often", "Always"], key="assess_accomplishment")
+                    concentration = st.selectbox("Difficulty concentrating?",
+                                               ["Never", "Rarely", "Sometimes", "Often", "Always"], key="assess_concentration")
+                
+                submitted = st.form_submit_button("Assess Burnout Risk")
+                
+                if submitted:
+                    # Comprehensive scoring system
+                    score = 0
                     
-                else:
-                    st.error("🔴 CRITICAL BURNOUT RISK")
-                    st.write("""
-                    **Critical situation.** You need immediate intervention and support.
+                    # Work factors (max 20 points)
+                    if work_hours > 50: score += 2
+                    if work_hours > 60: score += 3
                     
-                    **Emergency Recommendations:**
-                    - Seek professional mental health support immediately
-                    - Take medical leave if necessary
-                    - Discuss your situation with HR and management
-                    - Delegate responsibilities wherever possible
-                    - Focus completely on recovery and well-being
-                    """)
+                    overtime_scores = {"Never": 0, "Rarely": 1, "Sometimes": 2, "Often": 3, "Always": 4}
+                    score += overtime_scores[overtime_frequency]
+                    
+                    if work_pressure >= 7: score += 2
+                    if work_pressure >= 9: score += 1
+                    
+                    deadline_scores = {"Never": 0, "Rarely": 1, "Sometimes": 2, "Often": 3, "Always": 4}
+                    score += deadline_scores[deadline_frequency]
+                    
+                    if work_autonomy <= 4: score += 2
+                    
+                    # Well-being factors (max 15 points)
+                    if sleep_hours < 6: score += 3
+                    if sleep_hours < 5: score += 2
+                    
+                    if stress_level >= 7: score += 2
+                    if stress_level >= 9: score += 1
+                    
+                    if energy_level <= 4: score += 2
+                    if energy_level <= 3: score += 1
+                    
+                    if motivation_level <= 4: score += 2
+                    if motivation_level <= 2: score += 1
+                    
+                    # Symptoms (max 25 points)
+                    symptom_scores = {"Never": 0, "Rarely": 1, "Sometimes": 2, "Often": 3, "Always": 4}
+                    score += symptom_scores[exhaustion]
+                    score += symptom_scores[cynicism]
+                    score += symptom_scores[reduced_accomplishment]
+                    score += symptom_scores[physical_tiredness]
+                    score += symptom_scores[irritability]
+                    score += symptom_scores[concentration]
+                    
+                    # Risk assessment
+                    max_score = 60
+                    risk_percentage = (score / max_score) * 100
+                    
+                    st.subheader("📋 Assessment Results")
+                    st.metric("Your Burnout Risk Score", f"{score}/{max_score} ({risk_percentage:.1f}%)")
+                    
+                    if risk_percentage < 25:
+                        st.success("🟢 LOW BURNOUT RISK")
+                        st.balloons()
+                        st.write("""
+                        **You're doing great!** Your work habits and well-being indicators are healthy.
+                        
+                        **Maintenance Tips:**
+                        - Continue your current work-life balance practices
+                        - Keep taking regular breaks and vacations
+                        - Maintain your support networks
+                        - Stay proactive about stress management
+                        """)
+                        
+                    elif risk_percentage < 50:
+                        st.warning("🟡 MODERATE BURNOUT RISK")
+                        st.write("""
+                        **Caution advised.** You're showing some signs of strain that could lead to burnout.
+                        
+                        **Action Recommendations:**
+                        - Monitor your workload and set boundaries
+                        - Practice regular stress management techniques
+                        - Ensure you're taking proper breaks
+                        - Consider discussing workload with your manager
+                        - Prioritize sleep and physical activity
+                        """)
+                        
+                    elif risk_percentage < 75:
+                        st.error("🟠 HIGH BURNOUT RISK")
+                        st.write("""
+                        **Immediate attention needed.** You're showing significant burnout risk factors.
+                        
+                        **Urgent Actions:**
+                        - Review and reduce your workload immediately
+                        - Take time off if possible
+                        - Seek support from HR or mental health professionals
+                        - Discuss flexible working arrangements
+                        - Prioritize self-care and recovery
+                        """)
+                        
+                    else:
+                        st.error("🔴 CRITICAL BURNOUT RISK")
+                        st.write("""
+                        **Critical situation.** You need immediate intervention and support.
+                        
+                        **Emergency Recommendations:**
+                        - Seek professional mental health support immediately
+                        - Take medical leave if necessary
+                        - Discuss your situation with HR and management
+                        - Delegate responsibilities wherever possible
+                        - Focus completely on recovery and well-being
+                        """)
 
 if __name__ == "__main__":
     main()
-
