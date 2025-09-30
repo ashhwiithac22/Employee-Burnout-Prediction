@@ -24,7 +24,6 @@ def load_data():
         st.sidebar.info(f"Dataset Shape: {df.shape}")
         
     except Exception as e:
-        st.error(f"❌ Error loading Excel file: {e}")
         # Create a sample dataset for demonstration
         st.info("📊 Creating sample dataset for demonstration...")
         np.random.seed(42)
@@ -712,4 +711,5 @@ def main():
                         """)
 
 if __name__ == "__main__":
+
     main()
