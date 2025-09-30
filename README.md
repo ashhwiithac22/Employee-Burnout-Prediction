@@ -79,3 +79,6 @@ streamlit run app.py
 - Add deep learning models (TensorFlow / PyTorch)
 - Add more real-world HR datasets
 
+## Live Demo
+- 🎯 HR-based prediction & questionnaire assessment app: [employee-burnout-prediction-using-ml.streamlit.app](https://employee-burnout-prediction-using-ml.streamlit.app/)  
+
